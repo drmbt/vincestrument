@@ -4,8 +4,17 @@ export interface SampleCell {
     key: string;
     url: string | null;
     player: Tone.Player | null;
+    grainPlayer: Tone.GrainPlayer | null;
     mode: 'sampler' | 'granular';
-    // Future: add granular specific properties like grainSize, overlap, etc.
+    // Granular params
+    grainSize: number;
+    overlap: number;
+    playbackRate: number;
+}
+
+export interface LoopEvent {
+    time: number; // Time relative to loop start
+    key: string;
 }
 
 class AudioEngine {
@@ -22,6 +31,15 @@ class AudioEngine {
 
     // Callbacks for visual events
     public onTrigger?: (key: string, data: { rms: number, centroid: number }) => void;
+    public onLoopUpdate?: (events: LoopEvent[]) => void;
+
+    // Sequencer / Looper State
+    private loopPart: Tone.Part | null = null;
+    private recordedEvents: LoopEvent[] = [];
+    public loopLength: number = 2; // in seconds
+    private recordStartTime: number = 0;
+    public isRecording: boolean = false;
+    public isPlayingLoop: boolean = false;
 
     constructor() {
         this.masterVolume = new Tone.Volume(0).toDestination();
@@ -38,8 +56,24 @@ class AudioEngine {
     public async init() {
         if (this.inited) return;
         await Tone.start();
+        Tone.Transport.start(); // Start the transport for the looper
         console.log('AudioContext started');
         this.inited = true;
+    }
+
+    public async loadDefaultSamples() {
+        // Pre-populate some keys for immediate testing
+        const defaults = [
+            { key: 'q', url: 'https://tonejs.github.io/audio/drum-samples/CR78/kick.mp3' },
+            { key: 'w', url: 'https://tonejs.github.io/audio/drum-samples/CR78/snare.mp3' },
+            { key: 'e', url: 'https://tonejs.github.io/audio/drum-samples/CR78/hihat.mp3' }
+        ];
+
+        for (const def of defaults) {
+            if (!this.cells.has(def.key)) {
+                await this.loadSample(def.key, def.url).catch(console.error);
+            }
+        }
     }
 
     public async loadSample(key: string, fileUrl: string): Promise<void> {
@@ -48,22 +82,35 @@ class AudioEngine {
                 const player = new Tone.Player({
                     url: fileUrl,
                     onload: () => {
+                        // Create GrainPlayer simultaneously
+                        const grainPlayer = new Tone.GrainPlayer({
+                            url: fileUrl,
+                            grainSize: 0.1,
+                            overlap: 0.1,
+                            playbackRate: 1
+                        });
+
                         player.connect(this.masterVolume);
+                        grainPlayer.connect(this.masterVolume);
 
                         const cell = this.cells.get(key) || {
                             key,
                             url: fileUrl,
                             player: null,
-                            mode: 'sampler'
+                            grainPlayer: null,
+                            mode: 'sampler',
+                            grainSize: 0.1,
+                            overlap: 0.1,
+                            playbackRate: 1
                         };
 
-                        // Cleanup existing player if redefining
-                        if (cell.player) {
-                            cell.player.dispose();
-                        }
+                        // Cleanup existing players if redefining
+                        if (cell.player) cell.player.dispose();
+                        if (cell.grainPlayer) cell.grainPlayer.dispose();
 
                         cell.url = fileUrl;
                         cell.player = player;
+                        cell.grainPlayer = grainPlayer;
                         this.cells.set(key, cell);
                         resolve();
                     },
@@ -75,19 +122,122 @@ class AudioEngine {
         });
     }
 
-    public playKey(key: string) {
+    public playKey(key: string, overrideMode?: 'sampler' | 'granular') {
         if (!this.inited) return;
+
+        // Record event if recording
+        if (this.isRecording) {
+            const timeOffset = Tone.now() - this.recordStartTime;
+            if (timeOffset < this.loopLength) {
+                this.recordedEvents.push({ time: timeOffset, key });
+                if (this.onLoopUpdate) {
+                    this.onLoopUpdate([...this.recordedEvents]);
+                }
+            }
+        }
+
         const cell = this.cells.get(key);
-        if (cell && cell.player && cell.player.loaded) {
-            // Stop and restart to act as immediate trigger (beat juggling style)
-            cell.player.stop();
-            cell.player.start();
+
+        if (cell && cell.player && cell.player.loaded && cell.grainPlayer && cell.grainPlayer.loaded) {
+            const playMode = overrideMode || cell.mode;
+
+            if (playMode === 'sampler') {
+                cell.player.stop();
+                cell.player.start();
+            } else {
+                cell.grainPlayer.stop();
+                cell.grainPlayer.start();
+            }
             this.emitVisualTrigger(key);
         } else {
             // Test tone for empty cells so visuals can be verified
             this.fallbackSynth.triggerAttackRelease("C2", "8n");
             setTimeout(() => this.emitVisualTrigger(key), 50); // Small delay for analyzers to catch the synth
         }
+    }
+
+    public startRecording() {
+        this.recordedEvents = [];
+        this.isRecording = true;
+        this.isPlayingLoop = false;
+        if (this.loopPart) {
+            this.loopPart.dispose();
+            this.loopPart = null;
+        }
+        this.recordStartTime = Tone.now();
+
+        // Stop recording automatically after loopLength
+        setTimeout(() => {
+            if (this.isRecording) this.stopRecordingAndLoop();
+        }, this.loopLength * 1000);
+    }
+
+    public stopRecordingAndLoop() {
+        this.isRecording = false;
+        if (this.recordedEvents.length === 0) return;
+
+        this.isPlayingLoop = true;
+
+        // Create a Tone.Part to schedule the recorded events
+        this.loopPart = new Tone.Part((time, event) => {
+            // We use Tone.Draw or schedule to play exactly at `time`
+            // but for simplicity and immediate reaction, we can just trigger playKey
+            // A more robust way is to pass `time` to the player, but our beat juggling style uses stop/start.
+            // For now, we'll just fire it immediately when the callback hits.
+            Tone.Draw.schedule(() => {
+                // To prevent infinite feedback loop if we call playKey, we manually trigger
+                const cell = this.cells.get(event.key);
+                if (cell && cell.player && cell.player.loaded && cell.grainPlayer && cell.grainPlayer.loaded) {
+                    const playMode = cell.mode;
+                    if (playMode === 'sampler') {
+                        cell.player.stop();
+                        cell.player.start();
+                    } else {
+                        cell.grainPlayer.stop();
+                        cell.grainPlayer.start();
+                    }
+                    this.emitVisualTrigger(event.key);
+                } else {
+                    this.fallbackSynth.triggerAttackRelease("C2", "8n");
+                    setTimeout(() => this.emitVisualTrigger(event.key), 50);
+                }
+            }, time);
+        }, this.recordedEvents);
+
+        this.loopPart.loop = true;
+        this.loopPart.loopEnd = this.loopLength;
+        this.loopPart.start(0);
+    }
+
+    public clearLoop() {
+        if (this.loopPart) {
+            this.loopPart.dispose();
+            this.loopPart = null;
+        }
+        this.recordedEvents = [];
+        this.isPlayingLoop = false;
+        if (this.onLoopUpdate) {
+            this.onLoopUpdate([...this.recordedEvents]);
+        }
+    }
+
+    public getRecordedEvents() {
+        return this.recordedEvents;
+    }
+
+    public updateCellConfig(key: string, updates: Partial<SampleCell>) {
+        const cell = this.cells.get(key);
+        if (!cell) return;
+
+        Object.assign(cell, updates);
+
+        if (cell.grainPlayer) {
+            if (updates.grainSize !== undefined) cell.grainPlayer.grainSize = updates.grainSize;
+            if (updates.overlap !== undefined) cell.grainPlayer.overlap = updates.overlap;
+            if (updates.playbackRate !== undefined) cell.grainPlayer.playbackRate = updates.playbackRate;
+        }
+
+        this.cells.set(key, cell);
     }
 
     private emitVisualTrigger(key: string) {

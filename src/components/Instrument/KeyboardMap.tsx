@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { DragEvent } from 'react';
 import { engine } from '../../core/AudioEngine';
+import { CellEditor } from './CellEditor';
 import styles from './KeyboardMap.module.css';
 
 // 3 rows x 8 columns setup similar to Patatap's grid layout
@@ -15,6 +16,7 @@ interface KeyboardMapProps {
 
 export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
     const [activeKey, setActiveKey] = useState<string | null>(null);
+    const [selectedKey, setSelectedKey] = useState<string>('q');
     const [loadedKeys, setLoadedKeys] = useState<Set<string>>(new Set());
     const [isEngineReady, setIsEngineReady] = useState(false);
 
@@ -31,6 +33,7 @@ export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
                     setIsEngineReady(true);
                 }
                 setActiveKey(key);
+                setSelectedKey(key);
                 engine.playKey(key);
                 if (onKeyTriggered) onKeyTriggered(key);
             }
@@ -55,6 +58,8 @@ export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
 
         if (!isEngineReady) {
             await engine.init();
+            await engine.loadDefaultSamples(); // Added this line
+            setLoadedKeys(new Set(['q', 'w', 'e'])); // Added this line
             setIsEngineReady(true);
         }
 
@@ -64,6 +69,7 @@ export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
             try {
                 await engine.loadSample(targetKey, url);
                 setLoadedKeys(prev => new Set(prev).add(targetKey));
+                setSelectedKey(targetKey);
                 console.log(`Loaded sample to key: ${targetKey}`);
             } catch (err) {
                 console.error('Error loading sample', err);
@@ -81,35 +87,48 @@ export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
             {!isEngineReady && (
                 <div className={styles.overlay} onClick={async () => {
                     await engine.init();
+                    await engine.loadDefaultSamples();
+                    setLoadedKeys(new Set(['q', 'w', 'e']));
                     setIsEngineReady(true);
                 }}>
                     Click anywhere or press a key to enable audio
                 </div>
             )}
-            <div className={styles.grid}>
-                {KEYS.map((keyId) => {
-                    const isLoaded = loadedKeys.has(keyId);
-                    const isActive = activeKey === keyId;
 
-                    return (
-                        <div
-                            key={keyId}
-                            className={`${styles.cell} ${isActive ? styles.active : ''} ${isLoaded ? styles.loaded : ''}`}
-                            onDragOver={handleDragOver}
-                            onDrop={(e) => handleDrop(e, keyId)}
-                            onClick={() => {
-                                if (!isEngineReady) return;
-                                setActiveKey(keyId);
-                                engine.playKey(keyId);
-                                if (onKeyTriggered) onKeyTriggered(keyId);
-                                setTimeout(() => setActiveKey(null), 100);
-                            }}
-                        >
-                            <span className={styles.keyLabel}>{keyId.toUpperCase()}</span>
-                            {isLoaded && <div className={styles.statusDot}></div>}
-                        </div>
-                    );
-                })}
+            <div className={styles.layout}>
+                <div className={styles.gridContainer}>
+                    <div className={styles.grid}>
+                        {KEYS.map((keyId) => {
+                            const isLoaded = loadedKeys.has(keyId);
+                            const isActive = activeKey === keyId;
+                            const isSelected = selectedKey === keyId;
+
+                            return (
+                                <div
+                                    key={keyId}
+                                    className={`${styles.cell} ${isActive ? styles.active : ''} ${isLoaded ? styles.loaded : ''} ${isSelected ? styles.selected : ''}`}
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDrop(e, keyId)}
+                                    onClick={() => {
+                                        if (!isEngineReady) return;
+                                        setActiveKey(keyId);
+                                        setSelectedKey(keyId);
+                                        engine.playKey(keyId);
+                                        if (onKeyTriggered) onKeyTriggered(keyId);
+                                        setTimeout(() => setActiveKey(null), 100);
+                                    }}
+                                >
+                                    <span className={styles.keyLabel}>{keyId.toUpperCase()}</span>
+                                    {isLoaded && <div className={styles.statusDot}></div>}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className={styles.editorContainer}>
+                    <CellEditor activeKey={selectedKey} />
+                </div>
             </div>
         </div>
     );

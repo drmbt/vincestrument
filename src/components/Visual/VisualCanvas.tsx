@@ -5,9 +5,9 @@ import styles from './VisualCanvas.module.css';
 
 interface VisualEvent {
     key: string;
-    rms: number;      // Determines size/scale
-    centroid: number; // Determines color/hue
-    birth: number;    // Timestamp
+    rms: number;
+    centroid: number;
+    birth: number;
     x: number;
     y: number;
 }
@@ -20,7 +20,8 @@ export const VisualCanvas: React.FC = () => {
         if (!containerRef.current) return;
 
         const sketch = (p: p5) => {
-            let events: VisualEvent[] = [];
+            // List of transient events { birth: number, x, y, rms, centroid }
+            const events: VisualEvent[] = [];
 
             p.setup = () => {
                 const { clientWidth, clientHeight } = containerRef.current!;
@@ -37,7 +38,7 @@ export const VisualCanvas: React.FC = () => {
 
                 // Iterate backwards to safely remove dead events
                 for (let i = events.length - 1; i >= 0; i--) {
-                    const ev = events[i];
+                    const ev = events[i]; // ev is now correctly typed as VisualEvent
                     const age = now - ev.birth;
                     const lifespan = 600; // ms
 
@@ -74,7 +75,7 @@ export const VisualCanvas: React.FC = () => {
             };
 
             // Expose a method to add events
-            (p as any).triggerEvent = (key: string, data: { rms: number, centroid: number }) => {
+            (p as unknown as { triggerEvent: (key: string, data: { rms: number, centroid: number }) => void }).triggerEvent = (key: string, data: { rms: number, centroid: number }) => {
                 events.push({
                     key,
                     rms: data.rms,
@@ -90,8 +91,9 @@ export const VisualCanvas: React.FC = () => {
 
         // Register audio engine callback
         engine.onTrigger = (key, data) => {
-            if (p5Instance.current && (p5Instance.current as any).triggerEvent) {
-                (p5Instance.current as any).triggerEvent(key, data);
+            const pInst = p5Instance.current as unknown as { triggerEvent?: (key: string, data: { rms: number, centroid: number }) => void };
+            if (pInst && pInst.triggerEvent) {
+                pInst.triggerEvent(key, data);
             }
         };
 

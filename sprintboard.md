@@ -28,8 +28,8 @@
 
 ## Sprint 4: Advanced Synthesis & Sequencing
 **Goal**: Introduce Granular synthesis and the Middle Bar looper.
-- [ ] Add Granular Mode editor tab in bottom bar
-- [ ] Create Record/Loop tracking state (Middle Bar UI)
-- [ ] Modifier + Key mapping for loop recording 
+- [x] Add Granular Mode editor tab in bottom bar
+- [x] Create Record/Loop tracking state (Middle Bar UI)
+- [x] Modifier + Key mapping for loop recording 
 **Commit Point**: `feat: granular mode and loop sequencer`
 **Test**: User can record a sequence of keystrokes with Shift held, and it plays back continuously.
