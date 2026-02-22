@@ -4,8 +4,8 @@
 **Goal**: Get the scaffolding set up, deployable state, and the main layout grid working.
 - [x] Initialize Vite/React repo
 - [x] Document the plan and architecture
-- [ ] Create layout skeleton (Upper canvas, middle bar, bottom bar, inspector)
-- [ ] Theme configuration (Dark mode, typography, CSS variables)
+- [x] Create layout skeleton (Upper canvas, middle bar, bottom bar, inspector)
+- [x] Theme configuration (Dark mode, typography, CSS variables)
 **Commit Point**: `feat: basic application layout and theme scaffolding`
 **Test**: Verify responsive layout resizes correctly in browser dev tools.
 

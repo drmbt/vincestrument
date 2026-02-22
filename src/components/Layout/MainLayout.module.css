@@ -1,0 +1,127 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    background-color: var(--bg-dark);
+}
+
+.topSection {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+.canvasContainer {
+    flex: 1;
+    position: relative;
+    background-color: #000;
+    /* Deep black for canvas */
+    z-index: 1;
+}
+
+.inspectorContainer {
+    width: 300px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-left: 1px solid var(--glass-border);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+}
+
+.middleBar {
+    height: 120px;
+    /* Adjust as needed */
+    background: var(--bg-panel);
+    border-top: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--glass-border);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    z-index: 20;
+}
+
+.bottomBar {
+    height: 250px;
+    /* Sampler / Keyboard map height */
+    background: var(--bg-panel-solid);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+}
+
+.topControls {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 5;
+}
+
+.iconButton {
+    background: var(--bg-panel);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    transition: all 0.2s ease;
+}
+
+.iconButton:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary-hover);
+}
+
+.middleBarHeader,
+.bottomBarHeader {
+    height: 32px;
+    background: var(--bg-panel-solid);
+    border-top: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    z-index: 25;
+}
+
+.collapseBtn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: color 0.2s ease;
+}
+
+.collapseBtn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.875rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
