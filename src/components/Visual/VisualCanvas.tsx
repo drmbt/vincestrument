@@ -23,11 +23,26 @@ export const VisualCanvas: React.FC = () => {
             // List of transient events { birth: number, x, y, rms, centroid }
             const events: VisualEvent[] = [];
 
+            // Sustained particles
+            const particles: { x: number, y: number, vx: number, vy: number, baseSize: number }[] = [];
+            const numParticles = 50;
+
             p.setup = () => {
                 const { clientWidth, clientHeight } = containerRef.current!;
                 p.createCanvas(clientWidth, clientHeight);
                 p.colorMode(p.HSB, 360, 100, 100, 1);
                 p.noStroke();
+
+                // Initialize particles
+                for (let i = 0; i < numParticles; i++) {
+                    particles.push({
+                        x: p.random(p.width),
+                        y: p.random(p.height),
+                        vx: p.random(-0.5, 0.5),
+                        vy: p.random(-0.5, 0.5),
+                        baseSize: p.random(2, 8)
+                    });
+                }
             };
 
             p.draw = () => {
@@ -36,6 +51,32 @@ export const VisualCanvas: React.FC = () => {
 
                 const now = p.millis();
 
+                // --- Sustained Background Visuals ---
+                // Get current audio metrics for continuous modulation
+                const meterValue = engine.meter.getValue() as number;
+                const currentRms = isFinite(meterValue) ? Math.max(-100, Math.min(0, meterValue)) : -100;
+
+                // Map RMS to particle speed and size multiplier (-100 == quiet, 0 == loud)
+                const activityLevel = p.map(currentRms, -60, 0, 0, 1, true);
+                const speedMult = 1 + (activityLevel * 10);
+                const sizeMult = 1 + (activityLevel * 5);
+
+                // Draw particles
+                p.fill(250, 40, 50, 0.3 + (activityLevel * 0.4)); // Blueish ambient particles
+                for (const pt of particles) {
+                    pt.x += pt.vx * speedMult;
+                    pt.y += pt.vy * speedMult;
+
+                    // Wrap edges
+                    if (pt.x > p.width) pt.x = 0;
+                    if (pt.x < 0) pt.x = p.width;
+                    if (pt.y > p.height) pt.y = 0;
+                    if (pt.y < 0) pt.y = p.height;
+
+                    p.circle(pt.x, pt.y, pt.baseSize * sizeMult);
+                }
+
+                // --- Transient Event Visuals ---
                 // Iterate backwards to safely remove dead events
                 for (let i = events.length - 1; i >= 0; i--) {
                     const ev = events[i]; // ev is now correctly typed as VisualEvent

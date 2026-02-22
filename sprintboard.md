@@ -33,3 +33,11 @@
 - [x] Modifier + Key mapping for loop recording 
 **Commit Point**: `feat: granular mode and loop sequencer`
 **Test**: User can record a sequence of keystrokes with Shift held, and it plays back continuously.
+
+## Sprint 5: Polish & Sustained Visuals
+**Goal**: Finalize visual engine, add analytical data to the inspector, and polish.
+- [ ] Add sustained particle/texture background to VisualCanvas
+- [ ] Create Analytical Inspector widgets (RMS meter, FFT display)
+- [ ] Final UI/UX review
+**Commit Point**: `feat: analytical inspector and sustained visuals`
+**Test**: Inspector shows real-time frequency data, visual canvas reacts continuously.
