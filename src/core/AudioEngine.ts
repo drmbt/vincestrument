@@ -11,6 +11,7 @@ export interface SampleCell {
 class AudioEngine {
     private inited = false;
     private masterVolume: Tone.Volume;
+    private fallbackSynth: Tone.MembraneSynth;
 
     // Analyzers for visuals
     public meter: Tone.Meter;
@@ -24,10 +25,14 @@ class AudioEngine {
 
     constructor() {
         this.masterVolume = new Tone.Volume(0).toDestination();
+        this.fallbackSynth = new Tone.MembraneSynth();
+
         this.meter = new Tone.Meter();
         this.fft = new Tone.FFT(2048);
+
         this.masterVolume.connect(this.meter);
         this.masterVolume.connect(this.fft);
+        this.fallbackSynth.connect(this.masterVolume);
     }
 
     public async init() {
@@ -77,24 +82,37 @@ class AudioEngine {
             // Stop and restart to act as immediate trigger (beat juggling style)
             cell.player.stop();
             cell.player.start();
+            this.emitVisualTrigger(key);
+        } else {
+            // Test tone for empty cells so visuals can be verified
+            this.fallbackSynth.triggerAttackRelease("C2", "8n");
+            setTimeout(() => this.emitVisualTrigger(key), 50); // Small delay for analyzers to catch the synth
+        }
+    }
 
-            // Calculate spectral centroid as a rough estimate
-            const values = this.fft.getValue();
-            let sum = 0;
-            let weightedSum = 0;
-            for (let i = 0; i < values.length; i++) {
-                const v = Math.pow(10, (values[i] as number) / 20) || 0;
+    private emitVisualTrigger(key: string) {
+        // Calculate spectral centroid as a rough estimate
+        const values = this.fft.getValue();
+        let sum = 0;
+        let weightedSum = 0;
+        for (let i = 0; i < values.length; i++) {
+            const v = Math.pow(10, (values[i] as number) / 20) || 0;
+            if (isFinite(v)) {
                 sum += v;
                 weightedSum += v * i;
             }
-            const centroid = sum === 0 ? 0 : weightedSum / sum;
+        }
+        let centroid = sum === 0 ? 0 : weightedSum / sum;
 
-            if (this.onTrigger) {
-                this.onTrigger(key, {
-                    rms: this.meter.getValue() as number,
-                    centroid: centroid
-                });
-            }
+        let rmsVal = this.meter.getValue() as number;
+        if (!isFinite(rmsVal)) rmsVal = -100;
+        if (!isFinite(centroid)) centroid = 0;
+
+        if (this.onTrigger) {
+            this.onTrigger(key, {
+                rms: rmsVal,
+                centroid: centroid
+            });
         }
     }
 }
