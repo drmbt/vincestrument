@@ -12,11 +12,22 @@ class AudioEngine {
     private inited = false;
     private masterVolume: Tone.Volume;
 
+    // Analyzers for visuals
+    public meter: Tone.Meter;
+    public fft: Tone.FFT;
+
     // Mapping layout (e.g. 24 keys: 3 rows of 8)
     public cells: Map<string, SampleCell> = new Map();
 
+    // Callbacks for visual events
+    public onTrigger?: (key: string, data: { rms: number, centroid: number }) => void;
+
     constructor() {
         this.masterVolume = new Tone.Volume(0).toDestination();
+        this.meter = new Tone.Meter();
+        this.fft = new Tone.FFT(2048);
+        this.masterVolume.connect(this.meter);
+        this.masterVolume.connect(this.fft);
     }
 
     public async init() {
@@ -66,6 +77,24 @@ class AudioEngine {
             // Stop and restart to act as immediate trigger (beat juggling style)
             cell.player.stop();
             cell.player.start();
+
+            // Calculate spectral centroid as a rough estimate
+            const values = this.fft.getValue();
+            let sum = 0;
+            let weightedSum = 0;
+            for (let i = 0; i < values.length; i++) {
+                const v = Math.pow(10, (values[i] as number) / 20) || 0;
+                sum += v;
+                weightedSum += v * i;
+            }
+            const centroid = sum === 0 ? 0 : weightedSum / sum;
+
+            if (this.onTrigger) {
+                this.onTrigger(key, {
+                    rms: this.meter.getValue() as number,
+                    centroid: centroid
+                });
+            }
         }
     }
 }

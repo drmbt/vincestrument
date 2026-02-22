@@ -20,9 +20,9 @@
 
 ## Sprint 3: Visual Translation Engine
 **Goal**: Create the visual reactiveness layer that responds to the audio.
-- [ ] Integrate Audio feature extraction (RMS, Centroid, Zero crossing)
-- [ ] Set up visual canvas in the top layer
-- [ ] Instantiate basic Transient animations (flashes, scale blobs)
+- [x] Integrate Audio feature extraction (RMS, Centroid, Zero crossing)
+- [x] Set up visual canvas in the top layer
+- [x] Instantiate basic Transient animations (flashes, scale blobs)
 **Commit Point**: `feat: audio-reactive transient visual engine`
 **Test**: Pressing a loaded key triggers a synchronized visual animation overlaying the rest of the application.
 

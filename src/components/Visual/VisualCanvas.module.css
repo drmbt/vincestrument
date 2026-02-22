@@ -1,0 +1,15 @@
+.canvasWrapper {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+    background-color: #000;
+}
+
+/* Ensure the canvas element fills the wrapper */
+.canvasWrapper canvas {
+    display: block;
+    outline: none;
+}
