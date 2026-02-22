@@ -11,10 +11,10 @@
 
 ## Sprint 2: The Core Instrument (Sampler & Keyboard Map)
 **Goal**: Build the keyboard map interface and hook it up to simple sample playback.
-- [ ] Build 3x8 Keyboard cell grid mapping
-- [ ] Implement UI for file drag-and-drop
-- [ ] Map global keyboard events to trigger cells (Patatap style)
-- [ ] AudioEngine simple playback integration (`Tone.Player`)
+- [x] Build 3x8 Keyboard cell grid mapping
+- [x] Implement UI for file drag-and-drop
+- [x] Map global keyboard events to trigger cells (Patatap style)
+- [x] AudioEngine simple playback integration (`Tone.Player`)
 **Commit Point**: `feat: drag and drop sample playback map`
 **Test**: User can drop an audio file on a cell and press a key to hear it playback immediately.
 
