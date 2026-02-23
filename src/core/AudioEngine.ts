@@ -13,6 +13,10 @@ export interface SampleCell {
     trimEnd: number;
     transpose: number;
     pianoMode: boolean;
+    channel: Tone.Channel | null;
+    volume: number;
+    pan: number;
+    mute: boolean;
 }
 
 export interface NoteRegion {
@@ -164,13 +168,13 @@ class AudioEngine {
                             playbackRate: 1
                         });
 
-                        player.connect(this.masterVolume);
-                        player.connect(this.reverb);
-                        player.connect(this.delay);
+                        const channel = new Tone.Channel({ volume: 0, pan: 0, mute: false });
+                        channel.connect(this.masterVolume);
+                        channel.connect(this.reverb);
+                        channel.connect(this.delay);
 
-                        grainPlayer.connect(this.masterVolume);
-                        grainPlayer.connect(this.reverb);
-                        grainPlayer.connect(this.delay);
+                        player.connect(channel);
+                        grainPlayer.connect(channel);
 
                         const cell: SampleCell = this.cells.get(key) || {
                             key,
@@ -184,15 +188,21 @@ class AudioEngine {
                             trimStart: 0,
                             trimEnd: player.buffer.duration,
                             transpose: 0,
-                            pianoMode: false
+                            pianoMode: false,
+                            channel: null,
+                            volume: 0,
+                            pan: 0,
+                            mute: false
                         };
 
                         if (cell.player) cell.player.dispose();
                         if (cell.grainPlayer) cell.grainPlayer.dispose();
+                        if (cell.channel) cell.channel.dispose();
 
                         cell.url = fileUrl;
                         cell.player = player;
                         cell.grainPlayer = grainPlayer;
+                        cell.channel = channel;
                         cell.trimStart = 0;
                         cell.trimEnd = player.buffer.duration;
                         this.cells.set(key, cell);
@@ -222,12 +232,44 @@ class AudioEngine {
             destCell.trimEnd = sourceCell.trimEnd;
             destCell.transpose = sourceCell.transpose;
             destCell.pianoMode = sourceCell.pianoMode;
+            destCell.volume = sourceCell.volume;
+            destCell.pan = sourceCell.pan;
+            destCell.mute = sourceCell.mute;
 
             if (destCell.grainPlayer) {
                 destCell.grainPlayer.grainSize = destCell.grainSize;
                 destCell.grainPlayer.overlap = destCell.overlap;
                 destCell.grainPlayer.playbackRate = destCell.playbackRate;
             }
+            if (destCell.channel) {
+                destCell.channel.volume.value = destCell.volume;
+                destCell.channel.pan.value = destCell.pan;
+                destCell.channel.mute = destCell.mute;
+            }
+        }
+    }
+
+    public setCellVolume(key: string, volDb: number) {
+        const cell = this.cells.get(key);
+        if (cell && cell.channel) {
+            cell.volume = volDb;
+            cell.channel.volume.value = volDb;
+        }
+    }
+
+    public setCellPan(key: string, pan: number) {
+        const cell = this.cells.get(key);
+        if (cell && cell.channel) {
+            cell.pan = pan;
+            cell.channel.pan.value = pan;
+        }
+    }
+
+    public setCellMute(key: string, mute: boolean) {
+        const cell = this.cells.get(key);
+        if (cell && cell.channel) {
+            cell.mute = mute;
+            cell.channel.mute = mute;
         }
     }
 
@@ -519,7 +561,10 @@ class AudioEngine {
                 trimStart: cell.trimStart,
                 trimEnd: cell.trimEnd,
                 transpose: cell.transpose,
-                pianoMode: cell.pianoMode
+                pianoMode: cell.pianoMode,
+                volume: cell.volume,
+                pan: cell.pan,
+                mute: cell.mute
             });
         });
 
@@ -558,6 +603,10 @@ class AudioEngine {
                                 transpose: cellData.transpose,
                                 pianoMode: cellData.pianoMode
                             });
+
+                            if (cellData.volume !== undefined) this.setCellVolume(cellData.key, cellData.volume);
+                            if (cellData.pan !== undefined) this.setCellPan(cellData.key, cellData.pan);
+                            if (cellData.mute !== undefined) this.setCellMute(cellData.key, cellData.mute);
                         } catch (err) {
                             console.error(`Failed to load sample for key ${cellData.key} from ${cellData.url}`, err);
                         }

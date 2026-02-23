@@ -89,3 +89,9 @@
 - [x] Initialize `Tone.Reverb` and `Tone.PingPongDelay` in AudioEngine.
 - [x] Route all SampleCells to these global effect busses.
 - [x] Build `MasterEffectsPanel.tsx` and place it in the Right Inspector.
+
+## Sprint 12: Multi-track Mixing View
+**Goal**: Build a vertical channel strip mixer for per-sample volume, pan, and mute controls.
+- [x] Add `Tone.Channel` to the AudioEngine `SampleCell` pipeline.
+- [x] Build the `MixerPanel` and `ChannelStrip` UI components.
+- [x] Add the Mixer as a third tab in the bottom panel.

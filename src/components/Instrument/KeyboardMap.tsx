@@ -3,6 +3,7 @@ import type { DragEvent } from 'react';
 import { engine } from '../../core/AudioEngine';
 import { CellEditor } from './CellEditor';
 import { SampleEditor } from './SampleEditor';
+import { MixerPanel } from '../Mixer/MixerPanel';
 import styles from './KeyboardMap.module.css';
 
 // 3 rows x 8 columns setup similar to Patatap's grid layout
@@ -16,7 +17,7 @@ interface KeyboardMapProps {
 }
 
 export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
-    const [activeTab, setActiveTab] = useState<'keyboard' | 'editor'>('keyboard');
+    const [activeTab, setActiveTab] = useState<'keyboard' | 'editor' | 'mixer'>('keyboard');
     const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
     const [selectedKey, setSelectedKey] = useState<string>('q');
     const [loadedKeys, setLoadedKeys] = useState<Set<string>>(new Set());
@@ -152,6 +153,12 @@ export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
                 >
                     Sample Editor
                 </button>
+                <button
+                    className={`${styles.tabBtn} ${activeTab === 'mixer' ? styles.activeTab : ''}`}
+                    onClick={() => setActiveTab('mixer')}
+                >
+                    Mixer
+                </button>
             </div>
 
             <div className={styles.layout}>
@@ -183,9 +190,13 @@ export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
                                 })}
                             </div>
                         </div>
-                    ) : (
+                    ) : activeTab === 'editor' ? (
                         <div className={styles.sampleEditorContainer}>
                             <SampleEditor activeKey={selectedKey} />
+                        </div>
+                    ) : (
+                        <div className={styles.sampleEditorContainer}>
+                            <MixerPanel />
                         </div>
                     )}
                 </div>
