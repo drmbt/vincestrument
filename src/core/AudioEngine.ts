@@ -10,6 +10,9 @@ export interface SampleCell {
     grainSize: number;
     overlap: number;
     playbackRate: number;
+    // Trim params
+    trimStart: number;
+    trimEnd: number;
 }
 
 export interface LoopEvent {
@@ -82,9 +85,9 @@ class AudioEngine {
                 const player = new Tone.Player({
                     url: fileUrl,
                     onload: () => {
-                        // Create GrainPlayer simultaneously
+                        // Create GrainPlayer using the already loaded buffer
                         const grainPlayer = new Tone.GrainPlayer({
-                            url: fileUrl,
+                            url: player.buffer,
                             grainSize: 0.1,
                             overlap: 0.1,
                             playbackRate: 1
@@ -93,7 +96,7 @@ class AudioEngine {
                         player.connect(this.masterVolume);
                         grainPlayer.connect(this.masterVolume);
 
-                        const cell = this.cells.get(key) || {
+                        const cell: SampleCell = this.cells.get(key) || {
                             key,
                             url: fileUrl,
                             player: null,
@@ -101,7 +104,9 @@ class AudioEngine {
                             mode: 'sampler',
                             grainSize: 0.1,
                             overlap: 0.1,
-                            playbackRate: 1
+                            playbackRate: 1,
+                            trimStart: 0,
+                            trimEnd: player.buffer.duration
                         };
 
                         // Cleanup existing players if redefining
@@ -111,6 +116,9 @@ class AudioEngine {
                         cell.url = fileUrl;
                         cell.player = player;
                         cell.grainPlayer = grainPlayer;
+                        // Default trim to full duration of newly loaded sample
+                        cell.trimStart = 0;
+                        cell.trimEnd = player.buffer.duration;
                         this.cells.set(key, cell);
                         resolve();
                     },
@@ -140,13 +148,14 @@ class AudioEngine {
 
         if (cell && cell.player && cell.player.loaded && cell.grainPlayer && cell.grainPlayer.loaded) {
             const playMode = overrideMode || cell.mode;
+            const duration = cell.trimEnd - cell.trimStart;
 
             if (playMode === 'sampler') {
                 cell.player.stop();
-                cell.player.start();
+                cell.player.start(0, cell.trimStart, duration);
             } else {
                 cell.grainPlayer.stop();
-                cell.grainPlayer.start();
+                cell.grainPlayer.start(0, cell.trimStart, duration);
             }
             this.emitVisualTrigger(key);
         } else {
@@ -189,12 +198,13 @@ class AudioEngine {
                 const cell = this.cells.get(event.key);
                 if (cell && cell.player && cell.player.loaded && cell.grainPlayer && cell.grainPlayer.loaded) {
                     const playMode = cell.mode;
+                    const duration = cell.trimEnd - cell.trimStart;
                     if (playMode === 'sampler') {
                         cell.player.stop();
-                        cell.player.start();
+                        cell.player.start(0, cell.trimStart, duration);
                     } else {
                         cell.grainPlayer.stop();
-                        cell.grainPlayer.start();
+                        cell.grainPlayer.start(0, cell.trimStart, duration);
                     }
                     this.emitVisualTrigger(event.key);
                 } else {
@@ -236,6 +246,10 @@ class AudioEngine {
             if (updates.overlap !== undefined) cell.grainPlayer.overlap = updates.overlap;
             if (updates.playbackRate !== undefined) cell.grainPlayer.playbackRate = updates.playbackRate;
         }
+
+        // Handle trim offsets
+        if (updates.trimStart !== undefined) cell.trimStart = updates.trimStart;
+        if (updates.trimEnd !== undefined) cell.trimEnd = updates.trimEnd;
 
         this.cells.set(key, cell);
     }

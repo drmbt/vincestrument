@@ -36,8 +36,17 @@
 
 ## Sprint 5: Polish & Sustained Visuals
 **Goal**: Finalize visual engine, add analytical data to the inspector, and polish.
-- [ ] Add sustained particle/texture background to VisualCanvas
-- [ ] Create Analytical Inspector widgets (RMS meter, FFT display)
-- [ ] Final UI/UX review
+- [x] Add sustained particle/texture background to VisualCanvas
+- [x] Create Analytical Inspector widgets (RMS meter, FFT display)
+- [x] Final UI/UX review
 **Commit Point**: `feat: analytical inspector and sustained visuals`
 **Test**: Inspector shows real-time frequency data, visual canvas reacts continuously.
+
+## Sprint 6: Ableton-style Sample Editor & Granular Fix
+**Goal**: Implement a fully featured Sample Editor tab and fix granular synthesis playback.
+- [x] Refactor Bottom Bar to support tabs ('Keyboard Map', 'Sample Editor')
+- [x] Create `SampleEditor` component displaying full waveform for the selected key's sample
+- [x] Implement interactive trim controls (start/end) on the waveform
+- [x] Debug and fix Granular synthesis playback issues (ensure grain buffer is processing correctly)
+**Commit Point**: `feat: full sample editor and granular fix`
+**Test**: User can switch to Sample Editor tab, see waveform, adjust trim, and granular playback works.

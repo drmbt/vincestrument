@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { DragEvent } from 'react';
 import { engine } from '../../core/AudioEngine';
 import { CellEditor } from './CellEditor';
+import { SampleEditor } from './SampleEditor';
 import styles from './KeyboardMap.module.css';
 
 // 3 rows x 8 columns setup similar to Patatap's grid layout
@@ -15,6 +16,7 @@ interface KeyboardMapProps {
 }
 
 export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
+    const [activeTab, setActiveTab] = useState<'keyboard' | 'editor'>('keyboard');
     const [activeKey, setActiveKey] = useState<string | null>(null);
     const [selectedKey, setSelectedKey] = useState<string>('q');
     const [loadedKeys, setLoadedKeys] = useState<Set<string>>(new Set());
@@ -95,35 +97,58 @@ export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
                 </div>
             )}
 
-            <div className={styles.layout}>
-                <div className={styles.gridContainer}>
-                    <div className={styles.grid}>
-                        {KEYS.map((keyId) => {
-                            const isLoaded = loadedKeys.has(keyId);
-                            const isActive = activeKey === keyId;
-                            const isSelected = selectedKey === keyId;
+            <div className={styles.tabsHeader}>
+                <button
+                    className={`${styles.tabBtn} ${activeTab === 'keyboard' ? styles.activeTab : ''}`}
+                    onClick={() => setActiveTab('keyboard')}
+                >
+                    Keyboard Map
+                </button>
+                <button
+                    className={`${styles.tabBtn} ${activeTab === 'editor' ? styles.activeTab : ''}`}
+                    onClick={() => setActiveTab('editor')}
+                >
+                    Sample Editor
+                </button>
+            </div>
 
-                            return (
-                                <div
-                                    key={keyId}
-                                    className={`${styles.cell} ${isActive ? styles.active : ''} ${isLoaded ? styles.loaded : ''} ${isSelected ? styles.selected : ''}`}
-                                    onDragOver={handleDragOver}
-                                    onDrop={(e) => handleDrop(e, keyId)}
-                                    onClick={() => {
-                                        if (!isEngineReady) return;
-                                        setActiveKey(keyId);
-                                        setSelectedKey(keyId);
-                                        engine.playKey(keyId);
-                                        if (onKeyTriggered) onKeyTriggered(keyId);
-                                        setTimeout(() => setActiveKey(null), 100);
-                                    }}
-                                >
-                                    <span className={styles.keyLabel}>{keyId.toUpperCase()}</span>
-                                    {isLoaded && <div className={styles.statusDot}></div>}
-                                </div>
-                            );
-                        })}
-                    </div>
+            <div className={styles.layout}>
+                <div className={styles.mainContentArea}>
+                    {activeTab === 'keyboard' ? (
+                        <div className={styles.gridContainer}>
+                            <div className={styles.grid}>
+                                {KEYS.map((keyId) => {
+                                    const isLoaded = loadedKeys.has(keyId);
+                                    const isActive = activeKey === keyId;
+                                    const isSelected = selectedKey === keyId;
+
+                                    return (
+                                        <div
+                                            key={keyId}
+                                            className={`${styles.cell} ${isActive ? styles.active : ''} ${isLoaded ? styles.loaded : ''} ${isSelected ? styles.selected : ''}`}
+                                            onDragOver={handleDragOver}
+                                            onDrop={(e) => handleDrop(e, keyId)}
+                                            onClick={() => {
+                                                if (!isEngineReady) return;
+                                                setActiveKey(keyId);
+                                                setSelectedKey(keyId);
+                                                engine.playKey(keyId);
+                                                if (onKeyTriggered) onKeyTriggered(keyId);
+                                                setTimeout(() => setActiveKey(null), 100);
+                                            }}
+                                        >
+                                            <span className={styles.keyLabel}>{keyId.toUpperCase()}</span>
+                                            {isLoaded && <div className={styles.statusDot}></div>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className={styles.sampleEditorContainer}>
+                            <SampleEditor activeKey={selectedKey} />
+                        </div>
+                    )}
                 </div>
 
                 <div className={styles.editorContainer}>
