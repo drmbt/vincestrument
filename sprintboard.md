@@ -77,3 +77,9 @@
 - [x] Switch global UI fonts to monospaced variants.
 - [x] Enhance MiddleBarLooper grid graticule to be significantly more visible with solid, contrasting lines for beats and subdivisions.
 - [x] Update buttons, borders, and visualizer UI to match the minimal terminal aesthetic.
+
+## Sprint 10: Saving & Loading State
+**Goal**: Implement robust state management allowing users to save their custom sample maps and sequencer regions to `localStorage`.
+- [x] Implement `serializeState` and `loadState` in the AudioEngine to manage JSON exports of all cells and regions.
+- [x] Create `ProjectControls.tsx` component with Save/Load icons.
+- [x] Integrate the new controls into the `MainLayout` top header.

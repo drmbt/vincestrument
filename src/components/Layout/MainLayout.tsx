@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, type PanelImperativeHandle as ImperativePanelHandle } from 'react-resizable-panels';
 import { PanelRightClose, PanelRightOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { ProjectControls } from './ProjectControls';
 import styles from './MainLayout.module.css';
 
 interface MainLayoutProps {
@@ -50,6 +51,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                             <div className={styles.canvasContainer}>
                                 {canvasContent || <div className={styles.placeholder}>Visual Canvas Stage</div>}
                                 <div className={styles.topControls}>
+                                    <ProjectControls />
                                     <button
                                         className={styles.iconButton}
                                         onClick={() => togglePanel(inspectorRef, isInspectorOpen, setIsInspectorOpen)}

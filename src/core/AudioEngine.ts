@@ -354,6 +354,9 @@ class AudioEngine {
         if (this.isPlayingLoop) {
             this.stopRecordingAndLoop(); // Recompile part
         }
+        if (this.onSequenceUpdate) {
+            this.onSequenceUpdate([...this.regions]);
+        }
     }
 
     public togglePlayback() {
@@ -460,6 +463,74 @@ class AudioEngine {
 
         if (this.onTrigger) {
             this.onTrigger(key, { rms: rmsVal, centroid: centroid });
+        }
+    }
+    public serializeState(): string {
+        const serializedCells: any[] = [];
+        this.cells.forEach(cell => {
+            serializedCells.push({
+                key: cell.key,
+                url: cell.url,
+                mode: cell.mode,
+                grainSize: cell.grainSize,
+                overlap: cell.overlap,
+                playbackRate: cell.playbackRate,
+                trimStart: cell.trimStart,
+                trimEnd: cell.trimEnd,
+                transpose: cell.transpose,
+                pianoMode: cell.pianoMode
+            });
+        });
+
+        const state = {
+            bpm: this.bpm,
+            loopLength: this.loopLength,
+            cells: serializedCells,
+            regions: this.regions
+        };
+
+        return JSON.stringify(state);
+    }
+
+    public async loadState(jsonString: string): Promise<void> {
+        try {
+            const state = JSON.parse(jsonString);
+
+            this.stopLoop();
+            this.clearLoop();
+
+            if (state.bpm) this.setBpm(state.bpm);
+            if (state.loopLength) this.loopLength = state.loopLength;
+
+            if (state.cells && Array.isArray(state.cells)) {
+                const loadPromises = state.cells.map(async (cellData: any) => {
+                    if (cellData.url) {
+                        try {
+                            await this.loadSample(cellData.key, cellData.url);
+                            this.updateCellConfig(cellData.key, {
+                                mode: cellData.mode,
+                                grainSize: cellData.grainSize,
+                                overlap: cellData.overlap,
+                                playbackRate: cellData.playbackRate,
+                                trimStart: cellData.trimStart,
+                                trimEnd: cellData.trimEnd,
+                                transpose: cellData.transpose,
+                                pianoMode: cellData.pianoMode
+                            });
+                        } catch (err) {
+                            console.error(`Failed to load sample for key ${cellData.key} from ${cellData.url}`, err);
+                        }
+                    }
+                });
+                await Promise.all(loadPromises);
+            }
+
+            if (state.regions && Array.isArray(state.regions)) {
+                this.updateRegions(state.regions);
+            }
+
+        } catch (e) {
+            console.error("Failed to parse or load state", e);
         }
     }
 }
