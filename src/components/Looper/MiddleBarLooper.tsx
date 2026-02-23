@@ -286,14 +286,17 @@ export const MiddleBarLooper: React.FC = () => {
                 className={styles.sequencerArea}
                 onMouseDown={() => setSelectedRegionIds([])}
             >
-                {/* 1/4 Note Grid lines */}
-                {Array.from({ length: 16 }).map((_, i) => (
-                    <div
-                        key={`grid-${i}`}
-                        className={styles.gridLine}
-                        style={{ left: `calc(60px + ${(i / 16) * 100}% - ${(i / 16) * 60}px)` }}
-                    />
-                ))}
+                {/* Beat Grid lines (32 x 1/16th notes) */}
+                {Array.from({ length: 32 }).map((_, i) => {
+                    const isMajor = i % 4 === 0;
+                    return (
+                        <div
+                            key={`grid-${i}`}
+                            className={`${styles.gridLine} ${!isMajor ? styles.gridLineMinor : ''}`}
+                            style={{ left: `calc(60px + ${(i / 32) * 100}% - ${(i / 32) * 60}px)` }}
+                        />
+                    );
+                })}
 
                 {(engine.isPlayingLoop || engine.isRecording) && (
                     <div className={styles.playhead} style={{ left: `calc(60px + ${playheadPos}% - (${playheadPos} / 100) * 60px)` }} />

@@ -57,7 +57,8 @@
     padding: 8px 16px;
     cursor: pointer;
     border-bottom: 2px solid transparent;
-    transition: all 0.2s ease;
+    transition: all 0.1s;
+    text-transform: uppercase;
 }
 
 .tabBtn:hover {
@@ -83,7 +84,8 @@
     z-index: 50;
     font-weight: 500;
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 0;
+    border: 1px solid var(--accent-primary);
 }
 
 .grid {
@@ -98,32 +100,33 @@
 .cell {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: 0;
+    /* Terminal block */
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     position: relative;
-    transition: all 0.1s ease;
+    transition: all 0.05s;
     cursor: pointer;
     user-select: none;
 }
 
 .cell.selected {
     border-color: var(--accent-secondary);
-    background: rgba(236, 72, 153, 0.1);
+    background: var(--text-muted);
 }
 
 .cell:hover {
     border-color: var(--accent-primary);
-    background: rgba(45, 48, 58, 0.8);
+    background: var(--text-muted);
 }
 
 .cell.active {
     transform: scale(0.95);
     background: var(--accent-primary);
     border-color: var(--accent-primary-hover);
-    box-shadow: var(--shadow-glow);
+    color: var(--bg-dark);
 }
 
 .cell.loaded {
@@ -139,13 +142,16 @@
 
 .cell.active .keyLabel {
     opacity: 1;
+    color: var(--bg-dark);
+    /* Invert text */
 }
 
 .statusDot {
     width: 6px;
     height: 6px;
     background-color: var(--accent-tertiary);
-    border-radius: 50%;
+    border-radius: 0;
+    /* Square pixel instead of circle */
     position: absolute;
     bottom: 8px;
 }

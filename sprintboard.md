@@ -70,3 +70,10 @@
 - [x] Region Properties: Show region-specific pitch/crop in the Sample Editor when a region is selected.
 - [x] Keyboard Map Drag-Drop: Alt-drag from one key to another to duplicate the instrument.
 - [x] Multi-Mode Visualizer: Implement Oscilloscope, FFT, and a third visual mode in the top-left canvas.
+
+## Sprint 9: High Contrast Terminal Aesthetic
+**Goal**: Overhaul the visual design to a minimal, high-contrast terminal look and make the sequencer grid more pronounced.
+- [x] Implement deep black background and terminal green/amber accents in `index.css`.
+- [x] Switch global UI fonts to monospaced variants.
+- [x] Enhance MiddleBarLooper grid graticule to be significantly more visible with solid, contrasting lines for beats and subdivisions.
+- [x] Update buttons, borders, and visualizer UI to match the minimal terminal aesthetic.

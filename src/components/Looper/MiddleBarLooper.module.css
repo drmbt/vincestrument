@@ -11,8 +11,10 @@
     justify-content: space-between;
     align-items: center;
     padding: 12px 24px;
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 2px solid var(--border-color);
+    /* Thicker terminal border */
     flex-shrink: 0;
+    background: var(--bg-panel-solid);
 }
 
 .statusLed {
@@ -68,22 +70,24 @@
 }
 
 .iconBtn {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
+    background: transparent;
+    border: 1px solid var(--text-secondary);
     color: var(--text-secondary);
     padding: 8px;
-    border-radius: 4px;
+    border-radius: 0;
+    /* Boxy terminal look */
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: all 0.1s;
 }
 
 .iconBtn:not(:disabled):hover {
-    background: var(--bg-panel);
-    color: var(--accent-secondary);
-    border-color: var(--accent-secondary);
+    background: var(--text-secondary);
+    color: var(--bg-dark);
+    /* Invert colors on hover */
+    border-color: var(--text-secondary);
 }
 
 .iconBtn:disabled {
@@ -112,8 +116,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.4);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-panel-solid);
+    border-right: 2px solid var(--border-color);
+    border-bottom: 1px dashed var(--text-muted);
     color: var(--text-secondary);
     font-weight: bold;
     font-size: 0.85rem;
@@ -121,17 +126,16 @@
 }
 
 .laneHeader.active {
-    color: var(--accent-primary);
-    background: rgba(0, 0, 0, 0.6);
+    color: var(--bg-dark);
+    background: var(--accent-primary);
+    border-right: 2px solid var(--accent-primary);
 }
 
 .laneTrack {
     flex-grow: 1;
     position: relative;
-    background: repeating-linear-gradient(90deg,
-            transparent,
-            transparent calc(25% - 1px),
-            rgba(255, 255, 255, 0.03) 25%);
+    background: transparent;
+    /* Remove gradient to rely solely on the explicit DOM gridLines */
 }
 
 /* Note block */
@@ -140,15 +144,17 @@
     top: 6px;
     height: 36px;
     background: var(--accent-primary);
-    border-radius: 4px;
+    border-radius: 0;
+    /* Boxy terminal look */
     display: flex;
     align-items: center;
     padding: 0 6px;
     font-size: 0.7rem;
-    color: white;
+    color: var(--bg-dark);
+    font-weight: bold;
     cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+    border: 1px solid var(--bg-dark);
     overflow: hidden;
     white-space: nowrap;
     user-select: none;
@@ -160,8 +166,31 @@
 }
 
 .noteRegion.selected {
-    border-color: #fff;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+    border-color: white;
+    box-shadow: 0 0 0 2px white;
+    background: white;
+    color: var(--bg-dark);
+}
+
+/* Grid Lines */
+.gridLine {
+    position: absolute;
+    top: 49px;
+    /* Start below the header */
+    bottom: 0;
+    width: 2px;
+    background: var(--border-color);
+    /* Terminal green */
+    opacity: 0.25;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.gridLineMinor {
+    width: 1px;
+    background: var(--text-muted);
+    /* Darker green */
+    opacity: 0.15;
 }
 
 /* Playhead */
