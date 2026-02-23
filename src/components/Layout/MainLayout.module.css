@@ -23,7 +23,8 @@
 }
 
 .inspectorContainer {
-    width: 300px;
+    width: 100%;
+    height: 100%;
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -34,10 +35,9 @@
 }
 
 .middleBar {
-    height: 120px;
-    /* Adjust as needed */
+    width: 100%;
+    height: 100%;
     background: var(--bg-panel);
-    border-top: 1px solid var(--glass-border);
     border-bottom: 1px solid var(--glass-border);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -45,12 +45,31 @@
 }
 
 .bottomBar {
-    height: 250px;
-    /* Sampler / Keyboard map height */
+    width: 100%;
+    height: 100%;
     background: var(--bg-panel-solid);
     z-index: 30;
     display: flex;
     flex-direction: column;
+}
+
+.resizeHandleHorizontal {
+    width: 4px;
+    background-color: var(--glass-border);
+    transition: background-color 0.2s ease;
+    cursor: col-resize;
+    z-index: 40;
+}
+
+.resizeHandleHorizontal:hover,
+.resizeHandleHorizontal[data-resize-handle-state="drag"] {
+    background-color: var(--accent-primary);
+}
+
+.resizeHandleVertical {
+    position: relative;
+    cursor: row-resize;
+    z-index: 40;
 }
 
 .topControls {

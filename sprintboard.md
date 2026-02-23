@@ -50,3 +50,23 @@
 - [x] Debug and fix Granular synthesis playback issues (ensure grain buffer is processing correctly)
 **Commit Point**: `feat: full sample editor and granular fix`
 **Test**: User can switch to Sample Editor tab, see waveform, adjust trim, and granular playback works.
+
+## Sprint 7: Advanced Sequencer & Dynamic UI
+**Goal**: Build a multi-lane Ableton-style sequencer, add piano mode, and make the UI resizable.
+- [x] Implement resizable split panes for all main UI containers (Inspector, Bottom Bar, Middle Bar).
+- [x] Load 24 unique default samples and add transposition controls.
+- [x] Implement "Piano Mode" (listen to key up/down for note start/end events).
+- [x] Overhaul Sequencer: Add Tempo, Start/Stop, Quantization, and Beat Grids.
+- [x] Multi-lane Sequencer UI: One lane per key, with draggable, stretchable, and snappable note regions.
+- [ ] Per-note pitching and stretching within the sequencer lanes.
+**Commit Point**: `feat: advanced multi-lane sequencer and resizable ui`
+**Test**: User can resize windows, play notes with lengths depending on key hold, record them into a multi-lane sequencer, and edit the notes via drag/drop/stretch.
+
+## Sprint 8: Sequencing Depth & Visual Selection
+**Goal**: Bring deep interaction to the sequencer and revive the visualizer with new modes.
+- [x] Sequencer Region Selection: Click to select, Delete key to remove.
+- [x] Sequencer Alt-Drag: Copy regions in the timeline.
+- [x] Beat Grid Graticule: Visible subdivision lines over the sequencer background.
+- [x] Region Properties: Show region-specific pitch/crop in the Sample Editor when a region is selected.
+- [x] Keyboard Map Drag-Drop: Alt-drag from one key to another to duplicate the instrument.
+- [x] Multi-Mode Visualizer: Implement Oscilloscope, FFT, and a third visual mode in the top-left canvas.

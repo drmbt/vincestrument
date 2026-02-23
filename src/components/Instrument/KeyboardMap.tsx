@@ -17,7 +17,7 @@ interface KeyboardMapProps {
 
 export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
     const [activeTab, setActiveTab] = useState<'keyboard' | 'editor'>('keyboard');
-    const [activeKey, setActiveKey] = useState<string | null>(null);
+    const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
     const [selectedKey, setSelectedKey] = useState<string>('q');
     const [loadedKeys, setLoadedKeys] = useState<Set<string>>(new Set());
     const [isEngineReady, setIsEngineReady] = useState(false);
@@ -27,6 +27,7 @@ export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
         const handleKeyDown = async (e: KeyboardEvent) => {
             // Don't trigger if user is typing in an input
             if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+            if (e.repeat) return; // Ignore hold auto-repeat
 
             const key = e.key.toLowerCase();
             if (KEYS.includes(key)) {
@@ -34,15 +35,23 @@ export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
                     await engine.init();
                     setIsEngineReady(true);
                 }
-                setActiveKey(key);
+                setActiveKeys(prev => new Set(prev).add(key));
                 setSelectedKey(key);
-                engine.playKey(key);
+                engine.noteOn(key);
                 if (onKeyTriggered) onKeyTriggered(key);
             }
         };
 
-        const handleKeyUp = () => {
-            setActiveKey(null);
+        const handleKeyUp = (e: KeyboardEvent) => {
+            const key = e.key.toLowerCase();
+            if (KEYS.includes(key)) {
+                setActiveKeys(prev => {
+                    const next = new Set(prev);
+                    next.delete(key);
+                    return next;
+                });
+                engine.noteOff(key);
+            }
         };
 
         window.addEventListener('keydown', handleKeyDown);
@@ -60,22 +69,37 @@ export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
 
         if (!isEngineReady) {
             await engine.init();
-            await engine.loadDefaultSamples(); // Added this line
-            setLoadedKeys(new Set(['q', 'w', 'e'])); // Added this line
+            await engine.loadDefaultSamples();
+            setLoadedKeys(new Set(KEYS));
             setIsEngineReady(true);
         }
 
         const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith('audio/')) {
+        if (file && (file.type.match('audio.*') || file.name.endsWith('.wav') || file.name.endsWith('.mp3'))) {
             const url = URL.createObjectURL(file);
             try {
                 await engine.loadSample(targetKey, url);
                 setLoadedKeys(prev => new Set(prev).add(targetKey));
                 setSelectedKey(targetKey);
-                console.log(`Loaded sample to key: ${targetKey}`);
             } catch (err) {
-                console.error('Error loading sample', err);
+                console.error("Error loading dropped file", err);
             }
+        } else {
+            const sourceKey = e.dataTransfer.getData('text/plain');
+            if (sourceKey && e.altKey && loadedKeys.has(sourceKey) && sourceKey !== targetKey) {
+                await engine.duplicateCell(sourceKey, targetKey);
+                setLoadedKeys(prev => new Set(prev).add(targetKey));
+                setSelectedKey(targetKey);
+            }
+        }
+    };
+
+    const handleDragStart = (e: React.DragEvent, keyId: string) => {
+        if (e.altKey && loadedKeys.has(keyId)) {
+            e.dataTransfer.setData('text/plain', keyId);
+            e.dataTransfer.effectAllowed = 'copy';
+        } else {
+            e.preventDefault(); // Cancel drag if alt isn't held
         }
     };
 
@@ -84,13 +108,31 @@ export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
         e.stopPropagation();
     };
 
+    const handleMouseDown = async (keyId: string) => {
+        if (!isEngineReady) return;
+        setActiveKeys(prev => new Set(prev).add(keyId));
+        setSelectedKey(keyId);
+        engine.noteOn(keyId);
+        if (onKeyTriggered) onKeyTriggered(keyId);
+    };
+
+    const handleMouseUp = (keyId: string) => {
+        if (!isEngineReady) return;
+        setActiveKeys(prev => {
+            const next = new Set(prev);
+            next.delete(keyId);
+            return next;
+        });
+        engine.noteOff(keyId);
+    };
+
     return (
         <div className={styles.container}>
             {!isEngineReady && (
                 <div className={styles.overlay} onClick={async () => {
                     await engine.init();
                     await engine.loadDefaultSamples();
-                    setLoadedKeys(new Set(['q', 'w', 'e']));
+                    setLoadedKeys(new Set(KEYS));
                     setIsEngineReady(true);
                 }}>
                     Click anywhere or press a key to enable audio
@@ -119,23 +161,20 @@ export const KeyboardMap: React.FC<KeyboardMapProps> = ({ onKeyTriggered }) => {
                             <div className={styles.grid}>
                                 {KEYS.map((keyId) => {
                                     const isLoaded = loadedKeys.has(keyId);
-                                    const isActive = activeKey === keyId;
+                                    const isActive = activeKeys.has(keyId);
                                     const isSelected = selectedKey === keyId;
 
                                     return (
                                         <div
                                             key={keyId}
                                             className={`${styles.cell} ${isActive ? styles.active : ''} ${isLoaded ? styles.loaded : ''} ${isSelected ? styles.selected : ''}`}
+                                            draggable={true}
+                                            onDragStart={(e) => handleDragStart(e, keyId)}
                                             onDragOver={handleDragOver}
                                             onDrop={(e) => handleDrop(e, keyId)}
-                                            onClick={() => {
-                                                if (!isEngineReady) return;
-                                                setActiveKey(keyId);
-                                                setSelectedKey(keyId);
-                                                engine.playKey(keyId);
-                                                if (onKeyTriggered) onKeyTriggered(keyId);
-                                                setTimeout(() => setActiveKey(null), 100);
-                                            }}
+                                            onMouseDown={() => handleMouseDown(keyId)}
+                                            onMouseUp={() => handleMouseUp(keyId)}
+                                            onMouseLeave={() => isActive && handleMouseUp(keyId)}
                                         >
                                             <span className={styles.keyLabel}>{keyId.toUpperCase()}</span>
                                             {isLoaded && <div className={styles.statusDot}></div>}

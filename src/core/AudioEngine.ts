@@ -6,18 +6,23 @@ export interface SampleCell {
     player: Tone.Player | null;
     grainPlayer: Tone.GrainPlayer | null;
     mode: 'sampler' | 'granular';
-    // Granular params
     grainSize: number;
     overlap: number;
     playbackRate: number;
-    // Trim params
     trimStart: number;
     trimEnd: number;
+    transpose: number;
+    pianoMode: boolean;
 }
 
-export interface LoopEvent {
-    time: number; // Time relative to loop start
+export interface NoteRegion {
+    id: string;      // Unique ID for UI rendering
     key: string;
+    startTime: number;
+    duration: number;
+    transposeOffset?: number; // Per-note pitch shift in semitones
+    trimStart?: number;       // Per-note trim start override
+    trimEnd?: number;         // Per-note trim end override
 }
 
 class AudioEngine {
@@ -25,56 +30,87 @@ class AudioEngine {
     private masterVolume: Tone.Volume;
     private fallbackSynth: Tone.MembraneSynth;
 
-    // Analyzers for visuals
     public meter: Tone.Meter;
     public fft: Tone.FFT;
-
-    // Mapping layout (e.g. 24 keys: 3 rows of 8)
+    public waveform: Tone.Waveform;
     public cells: Map<string, SampleCell> = new Map();
 
-    // Callbacks for visual events
     public onTrigger?: (key: string, data: { rms: number, centroid: number }) => void;
-    public onLoopUpdate?: (events: LoopEvent[]) => void;
+    public onSequenceUpdate?: (regions: NoteRegion[]) => void;
 
-    // Sequencer / Looper State
+    // Sequencer State
     private loopPart: Tone.Part | null = null;
-    private recordedEvents: LoopEvent[] = [];
-    public loopLength: number = 2; // in seconds
+    private regions: NoteRegion[] = [];
+    private activeRecordingNotes: Map<string, NoteRegion> = new Map();
+
+    public loopLength: number = 4; // 4 seconds by default (e.g. 1 bar at 60 BPM or 2 bars at 120)
+    public bpm: number = 120;
+
     private recordStartTime: number = 0;
     public isRecording: boolean = false;
     public isPlayingLoop: boolean = false;
 
+    public selectedRegionId: string | null = null;
+    public onSelectionUpdate?: (regionId: string | null) => void;
+
     constructor() {
         this.masterVolume = new Tone.Volume(0).toDestination();
         this.fallbackSynth = new Tone.MembraneSynth();
-
         this.meter = new Tone.Meter();
         this.fft = new Tone.FFT(2048);
-
+        this.waveform = new Tone.Waveform(2048);
         this.masterVolume.connect(this.meter);
         this.masterVolume.connect(this.fft);
+        this.masterVolume.connect(this.waveform);
         this.fallbackSynth.connect(this.masterVolume);
     }
 
     public async init() {
         if (this.inited) return;
         await Tone.start();
-        Tone.Transport.start(); // Start the transport for the looper
+        Tone.Transport.bpm.value = this.bpm;
+        Tone.Transport.start();
         console.log('AudioContext started');
         this.inited = true;
     }
 
+    public setBpm(bpm: number) {
+        this.bpm = bpm;
+        Tone.Transport.bpm.value = bpm;
+    }
+
     public async loadDefaultSamples() {
-        // Pre-populate some keys for immediate testing
+        const baseUrl = 'https://tonejs.github.io/audio/';
         const defaults = [
-            { key: 'q', url: 'https://tonejs.github.io/audio/drum-samples/CR78/kick.mp3' },
-            { key: 'w', url: 'https://tonejs.github.io/audio/drum-samples/CR78/snare.mp3' },
-            { key: 'e', url: 'https://tonejs.github.io/audio/drum-samples/CR78/hihat.mp3' }
+            { key: 'q', url: baseUrl + 'drum-samples/CR78/kick.mp3' },
+            { key: 'w', url: baseUrl + 'drum-samples/CR78/snare.mp3' },
+            { key: 'e', url: baseUrl + 'drum-samples/CR78/hihat.mp3' },
+            { key: 'r', url: baseUrl + 'drum-samples/CR78/tom1.mp3' },
+            { key: 't', url: baseUrl + 'drum-samples/CR78/tom2.mp3' },
+            { key: 'y', url: baseUrl + 'drum-samples/CR78/tom3.mp3' },
+            { key: 'u', url: baseUrl + 'drum-samples/CR78/ride.mp3' },
+            { key: 'i', url: baseUrl + 'drum-samples/CR78/cowbell.mp3' },
+            { key: 'a', url: baseUrl + 'drum-samples/CR78/bongo.mp3' },
+            { key: 's', url: baseUrl + 'drum-samples/CR78/conga1.mp3' },
+            { key: 'd', url: baseUrl + 'drum-samples/CR78/conga2.mp3' },
+            { key: 'f', url: baseUrl + 'drum-samples/CR78/conga3.mp3' },
+            { key: 'g', url: baseUrl + 'drum-samples/CR78/guiro1.mp3' },
+            { key: 'h', url: baseUrl + 'drum-samples/CR78/guiro2.mp3' },
+            { key: 'j', url: baseUrl + 'drum-samples/CR78/tamb.mp3' },
+            { key: 'k', url: baseUrl + 'drum-samples/CR78/claves.mp3' },
+            { key: 'z', url: baseUrl + 'drum-samples/CR78/maracas.mp3' },
+            { key: 'x', url: baseUrl + 'drum-samples/CR78/rimshot.mp3' },
+            { key: 'c', url: baseUrl + 'drum-samples/CR78/cymbal.mp3' },
+            { key: 'v', url: baseUrl + 'casio/A1.mp3' },
+            { key: 'b', url: baseUrl + 'casio/C2.mp3' },
+            { key: 'n', url: baseUrl + 'casio/E2.mp3' },
+            { key: 'm', url: baseUrl + 'casio/G2.mp3' },
+            { key: ',', url: baseUrl + 'casio/C3.mp3' }
         ];
 
         for (const def of defaults) {
             if (!this.cells.has(def.key)) {
-                await this.loadSample(def.key, def.url).catch(console.error);
+                this.loadSample(def.key, def.url).catch(() => console.warn(`Failed to load ${def.url}`));
             }
         }
     }
@@ -85,7 +121,6 @@ class AudioEngine {
                 const player = new Tone.Player({
                     url: fileUrl,
                     onload: () => {
-                        // Create GrainPlayer using the already loaded buffer
                         const grainPlayer = new Tone.GrainPlayer({
                             url: player.buffer,
                             grainSize: 0.1,
@@ -106,17 +141,17 @@ class AudioEngine {
                             overlap: 0.1,
                             playbackRate: 1,
                             trimStart: 0,
-                            trimEnd: player.buffer.duration
+                            trimEnd: player.buffer.duration,
+                            transpose: 0,
+                            pianoMode: false
                         };
 
-                        // Cleanup existing players if redefining
                         if (cell.player) cell.player.dispose();
                         if (cell.grainPlayer) cell.grainPlayer.dispose();
 
                         cell.url = fileUrl;
                         cell.player = player;
                         cell.grainPlayer = grainPlayer;
-                        // Default trim to full duration of newly loaded sample
                         cell.trimStart = 0;
                         cell.trimEnd = player.buffer.duration;
                         this.cells.set(key, cell);
@@ -130,17 +165,54 @@ class AudioEngine {
         });
     }
 
+    public async duplicateCell(sourceKey: string, destKey: string): Promise<void> {
+        const sourceCell = this.cells.get(sourceKey);
+        if (!sourceCell || !sourceCell.url) return;
+
+        await this.loadSample(destKey, sourceCell.url);
+
+        const destCell = this.cells.get(destKey);
+        if (destCell) {
+            destCell.mode = sourceCell.mode;
+            destCell.grainSize = sourceCell.grainSize;
+            destCell.overlap = sourceCell.overlap;
+            destCell.playbackRate = sourceCell.playbackRate;
+            destCell.trimStart = sourceCell.trimStart;
+            destCell.trimEnd = sourceCell.trimEnd;
+            destCell.transpose = sourceCell.transpose;
+            destCell.pianoMode = sourceCell.pianoMode;
+
+            if (destCell.grainPlayer) {
+                destCell.grainPlayer.grainSize = destCell.grainSize;
+                destCell.grainPlayer.overlap = destCell.overlap;
+                destCell.grainPlayer.playbackRate = destCell.playbackRate;
+            }
+        }
+    }
+
     public playKey(key: string, overrideMode?: 'sampler' | 'granular') {
+        this.noteOn(key, overrideMode);
+    }
+
+    public noteOn(key: string, overrideMode?: 'sampler' | 'granular', skipRecord = false, time?: number, transposeOffset: number = 0, trimStartOverride?: number, trimEndOverride?: number) {
         if (!this.inited) return;
 
-        // Record event if recording
-        if (this.isRecording) {
-            const timeOffset = Tone.now() - this.recordStartTime;
+        const playTime = time !== undefined ? time : Tone.now();
+
+        // Start recording a new region
+        if (this.isRecording && !skipRecord) {
+            const timeOffset = playTime - this.recordStartTime;
             if (timeOffset < this.loopLength) {
-                this.recordedEvents.push({ time: timeOffset, key });
-                if (this.onLoopUpdate) {
-                    this.onLoopUpdate([...this.recordedEvents]);
-                }
+                const newRegion: NoteRegion = {
+                    id: Math.random().toString(36).substring(7),
+                    key,
+                    startTime: timeOffset,
+                    duration: 0.1, // temporary duration until noteOff
+                    transposeOffset: 0
+                };
+                this.activeRecordingNotes.set(key, newRegion);
+                this.regions.push(newRegion);
+                if (this.onSequenceUpdate) this.onSequenceUpdate([...this.regions]);
             }
         }
 
@@ -148,75 +220,184 @@ class AudioEngine {
 
         if (cell && cell.player && cell.player.loaded && cell.grainPlayer && cell.grainPlayer.loaded) {
             const playMode = overrideMode || cell.mode;
-            const duration = cell.trimEnd - cell.trimStart;
+
+            // Find if there's a specific region being played to use its trim overrides
+            // In a real sophisticated engine, time would be enough to match, but we can pass the region ID or just look it up if we are playing the loopPart
+            // Since we don't pass the region object to noteOn, let's allow it as a parameter, or calculate trim beforehand.
+            // Actually, we can just look up the region if `time` matches a `startTime` precisely, or we can just modify the signature to pass the region directly.
+            // But let's keep it simple: if transposeOffset is passed, we might also want trim passed.
+            // For now, let's just pass the region overrides directly.
+
+            const useTrimStart = trimStartOverride !== undefined ? trimStartOverride : cell.trimStart;
+            const useTrimEnd = trimEndOverride !== undefined ? trimEndOverride : cell.trimEnd;
+            const duration = useTrimEnd - useTrimStart;
+
+            const finalTranspose = cell.transpose + transposeOffset;
 
             if (playMode === 'sampler') {
-                cell.player.stop();
-                cell.player.start(0, cell.trimStart, duration);
+                cell.player.playbackRate = Math.pow(2, finalTranspose / 12);
+                cell.player.stop(playTime);
+                if (cell.pianoMode) {
+                    cell.player.start(playTime, useTrimStart);
+                } else {
+                    cell.player.start(playTime, useTrimStart, duration);
+                }
             } else {
-                cell.grainPlayer.stop();
-                cell.grainPlayer.start(0, cell.trimStart, duration);
+                cell.grainPlayer.detune = finalTranspose * 100;
+                cell.grainPlayer.stop(playTime);
+                if (cell.pianoMode) {
+                    cell.grainPlayer.start(playTime, useTrimStart);
+                } else {
+                    cell.grainPlayer.start(playTime, useTrimStart, duration);
+                }
             }
-            this.emitVisualTrigger(key);
+
+            // Visuals
+            Tone.Draw.schedule(() => {
+                this.emitVisualTrigger(key);
+            }, playTime);
         } else {
-            // Test tone for empty cells so visuals can be verified
-            this.fallbackSynth.triggerAttackRelease("C2", "8n");
-            setTimeout(() => this.emitVisualTrigger(key), 50); // Small delay for analyzers to catch the synth
+            this.fallbackSynth.triggerAttack("C2", playTime);
+            Tone.Draw.schedule(() => this.emitVisualTrigger(key), playTime);
+        }
+    }
+
+    public noteOff(key: string, skipRecord = false, time?: number) {
+        if (!this.inited) return;
+
+        const offTime = time !== undefined ? time : Tone.now();
+
+        if (this.isRecording && !skipRecord) {
+            const region = this.activeRecordingNotes.get(key);
+            if (region) {
+                const timeOffset = offTime - this.recordStartTime;
+                let duration = timeOffset - region.startTime;
+                if (duration <= 0) duration = 0.1;
+                // Cap at loop length
+                if (region.startTime + duration > this.loopLength) {
+                    duration = this.loopLength - region.startTime;
+                }
+                region.duration = duration;
+                this.activeRecordingNotes.delete(key);
+                if (this.onSequenceUpdate) this.onSequenceUpdate([...this.regions]);
+            }
+        }
+
+        const cell = this.cells.get(key);
+        if (cell && cell.player && cell.grainPlayer) {
+            if (cell.pianoMode) {
+                if (cell.mode === 'sampler') cell.player.stop(offTime + 0.05);
+                else cell.grainPlayer.stop(offTime + 0.05);
+            }
+        } else {
+            this.fallbackSynth.triggerRelease(offTime);
         }
     }
 
     public startRecording() {
-        this.recordedEvents = [];
+        this.activeRecordingNotes.clear();
         this.isRecording = true;
-        this.isPlayingLoop = false;
-        if (this.loopPart) {
-            this.loopPart.dispose();
-            this.loopPart = null;
-        }
-        this.recordStartTime = Tone.now();
+        // Do not clear this.regions or this.loopPart here, so we can overdub while it plays
 
-        // Stop recording automatically after loopLength
+        if (!this.isPlayingLoop && !this.loopPart) {
+            // First time recording
+            this.recordStartTime = Tone.now();
+            this.isPlayingLoop = false;
+        } else {
+            // Overdubbing: sync record start to the current loop cycle
+            const currentLoopTime = Tone.Transport.seconds % this.loopLength;
+            this.recordStartTime = Tone.now() - currentLoopTime;
+        }
+
+        // Pre-schedule stop
         setTimeout(() => {
-            if (this.isRecording) this.stopRecordingAndLoop();
+            if (this.isRecording) {
+                // Close any hanging notes
+                this.activeRecordingNotes.forEach((region) => {
+                    region.duration = this.loopLength - region.startTime;
+                });
+                this.activeRecordingNotes.clear();
+                this.stopRecordingAndLoop();
+            }
         }, this.loopLength * 1000);
     }
 
     public stopRecordingAndLoop() {
         this.isRecording = false;
-        if (this.recordedEvents.length === 0) return;
+        if (this.regions.length === 0) return;
 
         this.isPlayingLoop = true;
 
-        // Create a Tone.Part to schedule the recorded events
-        this.loopPart = new Tone.Part((time, event) => {
-            // We use Tone.Draw or schedule to play exactly at `time`
-            // but for simplicity and immediate reaction, we can just trigger playKey
-            // A more robust way is to pass `time` to the player, but our beat juggling style uses stop/start.
-            // For now, we'll just fire it immediately when the callback hits.
-            Tone.Draw.schedule(() => {
-                // To prevent infinite feedback loop if we call playKey, we manually trigger
-                const cell = this.cells.get(event.key);
-                if (cell && cell.player && cell.player.loaded && cell.grainPlayer && cell.grainPlayer.loaded) {
-                    const playMode = cell.mode;
-                    const duration = cell.trimEnd - cell.trimStart;
-                    if (playMode === 'sampler') {
-                        cell.player.stop();
-                        cell.player.start(0, cell.trimStart, duration);
-                    } else {
-                        cell.grainPlayer.stop();
-                        cell.grainPlayer.start(0, cell.trimStart, duration);
-                    }
-                    this.emitVisualTrigger(event.key);
-                } else {
-                    this.fallbackSynth.triggerAttackRelease("C2", "8n");
-                    setTimeout(() => this.emitVisualTrigger(event.key), 50);
-                }
-            }, time);
-        }, this.recordedEvents);
+        // Refresh part
+        if (this.loopPart) this.loopPart.dispose();
+
+        // Convert regions to Tone.Part events
+        const partEvents = this.regions.map(r => ({
+            time: r.startTime,
+            duration: r.duration,
+            key: r.key
+        }));
+
+        this.loopPart = new Tone.Part((time, value) => {
+            const region = value as any;
+            this.noteOn(region.key, undefined, true, time);
+            this.noteOff(region.key, true, time + region.duration);
+        }, partEvents);
 
         this.loopPart.loop = true;
         this.loopPart.loopEnd = this.loopLength;
         this.loopPart.start(0);
+    }
+
+    public updateRegions(newRegions: NoteRegion[]) {
+        this.regions = newRegions;
+        if (this.isPlayingLoop) {
+            this.stopRecordingAndLoop(); // Recompile part
+        }
+    }
+
+    public togglePlayback() {
+        if (this.isPlayingLoop) {
+            this.stopLoop();
+        } else {
+            this.playLoop();
+        }
+    }
+
+    public playLoop() {
+        if (this.regions.length === 0) return;
+        this.isPlayingLoop = true;
+        if (this.onSequenceUpdate) this.onSequenceUpdate(this.regions);
+
+        // Refresh part
+        if (this.loopPart) this.loopPart.dispose();
+
+        // Convert regions to Tone.Part events
+        const partEvents = this.regions.map(r => ({
+            time: r.startTime,
+            duration: r.duration,
+            key: r.key
+        }));
+
+        this.loopPart = new Tone.Part((time, value) => {
+            const region = value as any;
+            this.noteOn(region.key, undefined, true, time);
+            this.noteOff(region.key, true, time + region.duration);
+        }, partEvents);
+
+        this.loopPart.loop = true;
+        this.loopPart.loopEnd = this.loopLength;
+
+        // Sync to next musical bar or immediately
+        this.loopPart.start(0);
+    }
+
+    public stopLoop() {
+        this.isPlayingLoop = false;
+        if (this.loopPart) {
+            this.loopPart.stop();
+        }
+        if (this.onSequenceUpdate) this.onSequenceUpdate(this.regions);
     }
 
     public clearLoop() {
@@ -224,15 +405,22 @@ class AudioEngine {
             this.loopPart.dispose();
             this.loopPart = null;
         }
-        this.recordedEvents = [];
+        this.regions = [];
         this.isPlayingLoop = false;
-        if (this.onLoopUpdate) {
-            this.onLoopUpdate([...this.recordedEvents]);
+        if (this.onSequenceUpdate) {
+            this.onSequenceUpdate([...this.regions]);
         }
     }
 
-    public getRecordedEvents() {
-        return this.recordedEvents;
+    public setSelectedRegion(regionId: string | null) {
+        this.selectedRegionId = regionId;
+        if (this.onSelectionUpdate) {
+            this.onSelectionUpdate(regionId);
+        }
+    }
+
+    public getRegions() {
+        return this.regions;
     }
 
     public updateCellConfig(key: string, updates: Partial<SampleCell>) {
@@ -247,7 +435,6 @@ class AudioEngine {
             if (updates.playbackRate !== undefined) cell.grainPlayer.playbackRate = updates.playbackRate;
         }
 
-        // Handle trim offsets
         if (updates.trimStart !== undefined) cell.trimStart = updates.trimStart;
         if (updates.trimEnd !== undefined) cell.trimEnd = updates.trimEnd;
 
@@ -255,7 +442,6 @@ class AudioEngine {
     }
 
     private emitVisualTrigger(key: string) {
-        // Calculate spectral centroid as a rough estimate
         const values = this.fft.getValue();
         let sum = 0;
         let weightedSum = 0;
@@ -273,10 +459,7 @@ class AudioEngine {
         if (!isFinite(centroid)) centroid = 0;
 
         if (this.onTrigger) {
-            this.onTrigger(key, {
-                rms: rmsVal,
-                centroid: centroid
-            });
+            this.onTrigger(key, { rms: rmsVal, centroid: centroid });
         }
     }
 }

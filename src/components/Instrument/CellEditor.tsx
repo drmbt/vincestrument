@@ -37,10 +37,36 @@ export const CellEditor: React.FC<CellEditorProps> = ({ activeKey }) => {
         setCellState(prev => prev ? { ...prev, mode } : null);
     };
 
-    const handleParamChange = (param: keyof SampleCell, value: number) => {
+    const handleParamChange = (param: keyof SampleCell, value: any) => {
         engine.updateCellConfig(activeKey, { [param]: value });
         setCellState(prev => prev ? { ...prev, [param]: value } : null);
     };
+
+    const GlobalControls = () => (
+        <>
+            <div className={styles.controlGroup}>
+                <label>Transpose</label>
+                <input
+                    type="range"
+                    min="-24"
+                    max="24"
+                    step="1"
+                    value={cellState.transpose ?? 0}
+                    onChange={(e) => handleParamChange('transpose', parseInt(e.target.value, 10))}
+                />
+                <span>{cellState.transpose ?? 0} st</span>
+            </div>
+            <div className={styles.controlGroup}>
+                <label>Piano Mode</label>
+                <input
+                    type="checkbox"
+                    checked={cellState.pianoMode ?? false}
+                    onChange={(e) => handleParamChange('pianoMode', e.target.checked)}
+                />
+                <span>{cellState.pianoMode ? 'On' : 'Off'}</span>
+            </div>
+        </>
+    );
 
     return (
         <div className={styles.container}>
@@ -65,11 +91,11 @@ export const CellEditor: React.FC<CellEditorProps> = ({ activeKey }) => {
             <div className={styles.controls}>
                 {cellState.mode === 'sampler' ? (
                     <div className={styles.panel}>
-                        <p className={styles.infoText}>Sampler Mode active. Standard playback enabled.</p>
-                        {/* Future: Add pitch/trim here */}
+                        <GlobalControls />
                     </div>
                 ) : (
                     <div className={styles.panel}>
+                        <GlobalControls />
                         <div className={styles.controlGroup}>
                             <label>Grain Size</label>
                             <input

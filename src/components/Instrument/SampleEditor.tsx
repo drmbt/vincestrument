@@ -11,20 +11,37 @@ export const SampleEditor: React.FC<SampleEditorProps> = ({ activeKey }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [cell, setCell] = useState<SampleCell | null>(null);
     const [isDragging, setIsDragging] = useState<'start' | 'end' | null>(null);
+    const [selectedRegionId, setSelectedRegionId] = useState<string | null>(engine.selectedRegionId);
+
+    // Track selection changes instantly
+    useEffect(() => {
+        const handleSelection = (id: string | null) => setSelectedRegionId(id);
+        engine.onSelectionUpdate = handleSelection;
+        // Also grab it immediately in case we missed it
+        setSelectedRegionId(engine.selectedRegionId);
+
+        return () => {
+            if (engine.onSelectionUpdate === handleSelection) {
+                engine.onSelectionUpdate = undefined;
+            }
+        };
+    }, []);
 
     // Poll for cell updates easily
     useEffect(() => {
         const interval = setInterval(() => {
-            const currentCell = engine.cells.get(activeKey);
+            const region = engine.selectedRegionId ? engine.getRegions().find(r => r.id === engine.selectedRegionId) : null;
+            const targetKey = region ? region.key : activeKey;
+
+            const currentCell = engine.cells.get(targetKey);
             if (currentCell) {
-                // simple state update to trigger render
                 setCell({ ...currentCell });
             } else {
                 setCell(null);
             }
         }, 100);
         return () => clearInterval(interval);
-    }, [activeKey]);
+    }, [activeKey, selectedRegionId]);
 
     useEffect(() => {
         if (!canvasRef.current || !containerRef.current || !cell || !cell.player || !cell.player.loaded) return;
@@ -68,8 +85,13 @@ export const SampleEditor: React.FC<SampleEditorProps> = ({ activeKey }) => {
 
         // Draw inactive regions
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        const startX = (cell.trimStart / buffer.duration) * canvas.width;
-        const endX = (cell.trimEnd / buffer.duration) * canvas.width;
+
+        const region = engine.selectedRegionId ? engine.getRegions().find(r => r.id === engine.selectedRegionId) : null;
+        const currentTrimStart = region?.trimStart !== undefined ? region.trimStart : cell.trimStart;
+        const currentTrimEnd = region?.trimEnd !== undefined ? region.trimEnd : cell.trimEnd;
+
+        const startX = (currentTrimStart / buffer.duration) * canvas.width;
+        const endX = (currentTrimEnd / buffer.duration) * canvas.width;
 
         // fade out before start
         ctx.fillRect(0, 0, startX, canvas.height);
@@ -90,10 +112,14 @@ export const SampleEditor: React.FC<SampleEditorProps> = ({ activeKey }) => {
         ctx.lineTo(endX, canvas.height);
         ctx.stroke();
 
-    }, [cell, activeKey]);
+    }, [cell, activeKey, selectedRegionId]);
 
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!cell || !cell.player || !containerRef.current) return;
+
+        const region = engine.selectedRegionId ? engine.getRegions().find(r => r.id === engine.selectedRegionId) : null;
+        const currentTrimStart = region?.trimStart !== undefined ? region.trimStart : cell.trimStart;
+        const currentTrimEnd = region?.trimEnd !== undefined ? region.trimEnd : cell.trimEnd;
 
         const rect = containerRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -101,8 +127,8 @@ export const SampleEditor: React.FC<SampleEditorProps> = ({ activeKey }) => {
         const clickTime = (x / rect.width) * duration;
 
         // Check which marker we are closer to
-        const distToStart = Math.abs(clickTime - cell.trimStart);
-        const distToEnd = Math.abs(clickTime - cell.trimEnd);
+        const distToStart = Math.abs(clickTime - currentTrimStart);
+        const distToEnd = Math.abs(clickTime - currentTrimEnd);
 
         // Simple threshold of 5% of duration
         const threshold = duration * 0.05;
@@ -113,12 +139,17 @@ export const SampleEditor: React.FC<SampleEditorProps> = ({ activeKey }) => {
             setIsDragging('end');
         } else {
             // Clicked somewhere else, maybe just preview it
-            engine.playKey(activeKey);
+            engine.playKey(region ? region.key : activeKey);
         }
     };
 
     const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!isDragging || !cell || !cell.player || !containerRef.current) return;
+
+        const region = engine.selectedRegionId ? engine.getRegions().find(r => r.id === engine.selectedRegionId) : null;
+        const targetKey = region ? region.key : activeKey;
+        const currentTrimStart = region?.trimStart !== undefined ? region.trimStart : cell.trimStart;
+        const currentTrimEnd = region?.trimEnd !== undefined ? region.trimEnd : cell.trimEnd;
 
         const rect = containerRef.current.getBoundingClientRect();
         // constraint x between 0 and rect.width
@@ -127,13 +158,21 @@ export const SampleEditor: React.FC<SampleEditorProps> = ({ activeKey }) => {
         let newTime = (x / rect.width) * duration;
 
         if (isDragging === 'start') {
-            // Can't push start past end
-            newTime = Math.min(newTime, cell.trimEnd - 0.01);
-            engine.updateCellConfig(activeKey, { trimStart: newTime });
+            newTime = Math.min(newTime, currentTrimEnd - 0.01);
+            if (region) {
+                region.trimStart = newTime;
+                engine.updateRegions(engine.getRegions());
+            } else {
+                engine.updateCellConfig(targetKey, { trimStart: newTime });
+            }
         } else {
-            // Can't push end before start
-            newTime = Math.max(newTime, cell.trimStart + 0.01);
-            engine.updateCellConfig(activeKey, { trimEnd: newTime });
+            newTime = Math.max(newTime, currentTrimStart + 0.01);
+            if (region) {
+                region.trimEnd = newTime;
+                engine.updateRegions(engine.getRegions());
+            } else {
+                engine.updateCellConfig(targetKey, { trimEnd: newTime });
+            }
         }
     };
 
@@ -145,10 +184,15 @@ export const SampleEditor: React.FC<SampleEditorProps> = ({ activeKey }) => {
         return <div className={styles.empty}>Select a key to edit its sample, or drag a sample onto a key.</div>;
     }
 
+    const activeRegion = engine.selectedRegionId ? engine.getRegions().find(r => r.id === engine.selectedRegionId) : null;
+    const displayKey = activeRegion ? activeRegion.key : activeKey;
+    const currentTrimStart = activeRegion?.trimStart !== undefined ? activeRegion.trimStart : cell.trimStart;
+    const currentTrimEnd = activeRegion?.trimEnd !== undefined ? activeRegion.trimEnd : cell.trimEnd;
+
     return (
         <div className={styles.container}>
             <div className={styles.header}>
-                <h3>{activeKey.toUpperCase()} Sample Editor</h3>
+                <h3>{displayKey.toUpperCase()} {activeRegion ? 'REGION OVERRIDE' : 'SAMPLE EDITOR'}</h3>
                 <span className={styles.info}>
                     {cell.player.buffer.duration.toFixed(2)}s
                 </span>
@@ -165,8 +209,8 @@ export const SampleEditor: React.FC<SampleEditorProps> = ({ activeKey }) => {
             >
                 <canvas ref={canvasRef} className={styles.canvas} />
                 <div className={styles.labels}>
-                    <span>Start: {cell.trimStart.toFixed(3)}s</span>
-                    <span>End: {cell.trimEnd.toFixed(3)}s</span>
+                    <span>Start: {currentTrimStart.toFixed(3)}s</span>
+                    <span>End: {currentTrimEnd.toFixed(3)}s</span>
                 </div>
             </div>
 
