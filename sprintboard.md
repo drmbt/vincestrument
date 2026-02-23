@@ -83,3 +83,9 @@
 - [x] Implement `serializeState` and `loadState` in the AudioEngine to manage JSON exports of all cells and regions.
 - [x] Create `ProjectControls.tsx` component with Save/Load icons.
 - [x] Integrate the new controls into the `MainLayout` top header.
+
+## Sprint 11: Global Audio Effects
+**Goal**: Enhance the sound engine with global Reverb and Delay busses, controlled via the UI Inspector.
+- [x] Initialize `Tone.Reverb` and `Tone.PingPongDelay` in AudioEngine.
+- [x] Route all SampleCells to these global effect busses.
+- [x] Build `MasterEffectsPanel.tsx` and place it in the Right Inspector.

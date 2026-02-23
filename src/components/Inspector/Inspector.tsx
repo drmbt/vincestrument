@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { engine } from '../../core/AudioEngine';
+import { MasterEffectsPanel } from './MasterEffectsPanel';
 import styles from './Inspector.module.css';
 
 export const Inspector: React.FC = () => {
@@ -102,6 +103,8 @@ export const Inspector: React.FC = () => {
                 <p><strong>Looper Status:</strong> {engine.isRecording ? 'Recording' : 'Ready'}</p>
                 <p>The spectral centroid drives the animation color, while the RMS drives the scale.</p>
             </div>
+
+            <MasterEffectsPanel />
         </div>
     );
 };

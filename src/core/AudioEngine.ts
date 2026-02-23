@@ -35,6 +35,12 @@ class AudioEngine {
     public waveform: Tone.Waveform;
     public cells: Map<string, SampleCell> = new Map();
 
+    // Global Effects
+    public reverb: Tone.Reverb;
+    public delay: Tone.PingPongDelay;
+    public reverbVol: Tone.Volume;
+    public delayVol: Tone.Volume;
+
     public onTrigger?: (key: string, data: { rms: number, centroid: number }) => void;
     public onSequenceUpdate?: (regions: NoteRegion[]) => void;
 
@@ -59,6 +65,23 @@ class AudioEngine {
         this.meter = new Tone.Meter();
         this.fft = new Tone.FFT(2048);
         this.waveform = new Tone.Waveform(2048);
+
+        // Initialize effects
+        this.reverb = new Tone.Reverb({ decay: 2.5, preDelay: 0.1 });
+        this.reverb.wet.value = 1; // 100% wet, we control level via reverbVol
+
+        this.delay = new Tone.PingPongDelay({ delayTime: "8n", feedback: 0.4 });
+        this.delay.wet.value = 1;
+
+        this.reverbVol = new Tone.Volume(-Infinity);
+        this.delayVol = new Tone.Volume(-Infinity);
+
+        // Routing
+        this.reverb.connect(this.reverbVol);
+        this.delay.connect(this.delayVol);
+        this.reverbVol.connect(this.masterVolume);
+        this.delayVol.connect(this.masterVolume);
+
         this.masterVolume.connect(this.meter);
         this.masterVolume.connect(this.fft);
         this.masterVolume.connect(this.waveform);
@@ -77,6 +100,19 @@ class AudioEngine {
     public setBpm(bpm: number) {
         this.bpm = bpm;
         Tone.Transport.bpm.value = bpm;
+    }
+
+    public setReverbAmount(val: number) {
+        // Map 0-1 to Decibels (e.g., -60 to 0)
+        this.reverbVol.volume.value = val <= 0 ? -Infinity : Tone.gainToDb(val);
+    }
+
+    public setDelayAmount(val: number) {
+        this.delayVol.volume.value = val <= 0 ? -Infinity : Tone.gainToDb(val);
+    }
+
+    public setDelayTime(time: Tone.Unit.Time) {
+        this.delay.delayTime.value = time;
     }
 
     public async loadDefaultSamples() {
@@ -129,7 +165,12 @@ class AudioEngine {
                         });
 
                         player.connect(this.masterVolume);
+                        player.connect(this.reverb);
+                        player.connect(this.delay);
+
                         grainPlayer.connect(this.masterVolume);
+                        grainPlayer.connect(this.reverb);
+                        grainPlayer.connect(this.delay);
 
                         const cell: SampleCell = this.cells.get(key) || {
                             key,
