@@ -60,8 +60,6 @@ export const VisualCanvas: React.FC = () => {
                     // Clear with a slight trailing effect for motion blur
                     p.background(0, 0, 0, 0.2);
 
-                    const now = p.millis();
-
                     // --- Sustained Background Visuals ---
                     const meterValue = engine.meter.getValue() as number;
                     const currentRms = isFinite(meterValue) ? Math.max(-100, Math.min(0, meterValue)) : -100;
@@ -70,7 +68,7 @@ export const VisualCanvas: React.FC = () => {
                     const speedMult = 1 + (activityLevel * 10);
                     const sizeMult = 1 + (activityLevel * 5);
 
-                    p.fill(250, 40, 50, 0.3 + (activityLevel * 0.4));
+                    p.fill(250, 40, 80, 0.3 + (activityLevel * 0.4)); // Increased brightness from 50 to 80
                     p.noStroke();
                     for (const pt of particles) {
                         pt.x += pt.vx * speedMult;
